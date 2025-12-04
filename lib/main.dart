@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'pages/welcome_page.dart';
 import 'pages/login_page.dart';
+import 'pages/register.dart';
 import 'pages/dashboard/dashboard_page.dart';
 
 void main() {
@@ -30,6 +31,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/dashboard': (context) => const DashboardPage(),
+        '/register': (context) => const RegistrationPage(),
       },
       home: FutureBuilder<bool>(
         future: isLoggedIn(),

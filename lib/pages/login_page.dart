@@ -10,6 +10,10 @@ class LoginPage extends StatelessWidget {
     Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
+  void _goToRegister(BuildContext context) {
+    Navigator.pushNamed(context, '/register');
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -61,6 +65,14 @@ class LoginPage extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: () {},
                     child: const Text("Login with OTP"),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => _goToRegister(context),
+                    child: const Text("Register"),
                   ),
                 ),
               ],
