@@ -23,6 +23,7 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
   LatLng? _selectedPoint;
   bool _hasChanges = false;
   bool _hasSelection = false;
+  bool _isSatelliteView = false;
   // Default camera position (e.g., a reasonable starting point)
   static final LatLng _initialCenter = LatLng(
     10.8505,
@@ -85,10 +86,12 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
           );
           // If tap is within 5 meters (adjust this tolerance as needed)
           if (distance < 10) {
-            _selectedPoint = existingPoint;
-            foundSelection = true;
-            _hasSelection = true;
-            break;
+            if (_selectedPoint != existingPoint) {
+              _selectedPoint = existingPoint;
+              foundSelection = true;
+              _hasSelection = true;
+              break;
+            }
           }
         }
         // 2. If no existing point was tapped, add a new point
@@ -115,19 +118,19 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
     });
   }
 
-  void _handleLongPress(TapPosition tapPosition, LatLng point) {
-    if (_selectedPoint != null) {
-      setState(() {
-        _hasChanges = true;
-        // Find the index of the selected point and replace it with the new location
-        final index = _polygonPoints.indexOf(_selectedPoint!);
-        if (index != -1) {
-          _polygonPoints[index] = point;
-          _selectedPoint = point; // Update selected point reference
-        }
-      });
-    }
-  }
+  // void _handleLongPress(TapPosition tapPosition, LatLng point) {
+  //   if (_selectedPoint != null) {
+  //     setState(() {
+  //       _hasChanges = true;
+  //       // Find the index of the selected point and replace it with the new location
+  //       final index = _polygonPoints.indexOf(_selectedPoint!);
+  //       if (index != -1) {
+  //         _polygonPoints[index] = point;
+  //         _selectedPoint = point; // Update selected point reference
+  //       }
+  //     });
+  //   }
+  // }
 
   Future<bool> _showSaveConfirmationDialog() async {
     if (!_hasChanges) {
@@ -218,15 +221,27 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
               },
             ),
             // Save button is now ALWAYS VISIBLE
-            TextButton(
-              onPressed: canSave
-                  ? _saveAndExit
-                  : null, // Disabled if can't save
-              child: Text(
-                'SAVE',
-                style: TextStyle(
-                  color: canSave ? Colors.white : Colors.white54,
-                  fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0, top: 8.0, bottom: 8.0),
+              child: ElevatedButton(
+                onPressed: canSave ? _saveAndExit : null,
+                style: ElevatedButton.styleFrom(
+                  // Dynamic colors based on savable state
+                  backgroundColor: canSave
+                      ? Colors.green.shade600
+                      : Colors.grey.shade400,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey.shade400,
+                  disabledForegroundColor: Colors.white70,
+                  elevation: canSave ? 2 : 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'SAVE',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -234,22 +249,6 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
         ),
         body: Stack(
           children: [
-            Positioned(
-              top: 10,
-              left: 10,
-              right: 10,
-              child: Card(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: "Search location (e.g. Farm Road, Thodupuzha)",
-                    prefixIcon: const Icon(Icons.search),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                  ),
-                  onSubmitted: (value) => _searchAddress(value),
-                ),
-              ),
-            ),
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
@@ -264,14 +263,31 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
 
                 // --- End Fix 1 ---
                 onTap: _handleTap,
-                onLongPress: _handleLongPress,
+                //onLongPress: _handleLongPress,
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: _isSatelliteView
+                      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.example.app',
                 ),
-
+                if (_isSatelliteView) ...[
+                  // Road Network (Thick lines)
+                  TileLayer(
+                    urlTemplate:
+                        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+                    backgroundColor: Colors.transparent,
+                    userAgentPackageName: 'com.example.app',
+                  ),
+                  // Bold Place Names & Labels
+                  TileLayer(
+                    urlTemplate:
+                        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                    backgroundColor: Colors.transparent,
+                    userAgentPackageName: 'com.example.app',
+                  ),
+                ],
                 // Polygon Layer
                 PolygonLayer(
                   polygons: [
@@ -303,7 +319,11 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
                         onTap: () {
                           // Allow explicit pin selection by tapping the marker
                           setState(() {
-                            _selectedPoint = point;
+                            if (_selectedPoint != point) {
+                              _selectedPoint = point;
+                            } else {
+                              _selectedPoint = null;
+                            }
                           });
                         },
                         child: Icon(
@@ -320,7 +340,38 @@ class _MapDrawingScreenState extends State<MapDrawingScreen> {
                 ),
               ],
             ),
-
+            Positioned(
+              right: 10,
+              top: 130, // Adjusted to be below the reorder button
+              child: FloatingActionButton.small(
+                backgroundColor: Colors.white,
+                onPressed: () {
+                  setState(() {
+                    _isSatelliteView = !_isSatelliteView;
+                  });
+                },
+                child: Icon(
+                  _isSatelliteView ? Icons.map : Icons.satellite_alt,
+                  color: Colors.blue,
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              left: 10,
+              right: 10,
+              child: Card(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: "Search location (e.g. Farm Road, Thodupuzha)",
+                    prefixIcon: const Icon(Icons.search),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  onSubmitted: (value) => _searchAddress(value),
+                ),
+              ),
+            ),
             // Floating UI for Selection/Action
             if (_selectedPoint != null)
               Positioned(
